@@ -8,17 +8,17 @@ import (
 )
 
 type Project struct {
-	ID          uuid.UUID      `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	CreatedBy   uuid.UUID      `gorm:"type:uuid;not null;index" json:"created_by"`
-	Name        string         `gorm:"type:varchar(150);not null" json:"name"`
-	Summary     string         `gorm:"type:varchar(255);not null" json:"summary"`
-	Description string         `gorm:"type:text;not null" json:"description"`
-	Goal        string         `gorm:"type:text;not null" json:"goal"`
-	Status      ProjectStatus  `gorm:"type:project_status;not null;default:'recruiting';index" json:"status"`
-	DocumentUrl *string        `gorm:"type:varchar(255)" json:"document_url,omitempty"`
-	CreatedAt   time.Time      `gorm:"default:now();not null" json:"created_at"`
-	UpdatedAt   time.Time      `gorm:"default:now();not null" json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+	ID            uuid.UUID      `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	CreatedBy     uuid.UUID      `gorm:"type:uuid;not null;index" json:"created_by"`
+	Name          string         `gorm:"type:varchar(150);not null" json:"name"`
+	Summary       string         `gorm:"type:varchar(255);not null" json:"summary"`
+	Description   string         `gorm:"type:text;not null" json:"description"`
+	Goal          string         `gorm:"type:text;not null" json:"goal"`
+	Status        ProjectStatus  `gorm:"type:project_status;not null;default:'recruiting';index" json:"status"`
+	AttachmentUrl *string        `gorm:"type:varchar(255)" json:"attachment_url,omitempty"`
+	CreatedAt     time.Time      `gorm:"default:now();not null" json:"created_at"`
+	UpdatedAt     time.Time      `gorm:"default:now();not null" json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 
 	Creator      User              `gorm:"foreignKey:CreatedBy;references:ID" json:"creator,omitempty"`
 	Positions    []ProjectPosition `gorm:"foreignKey:ProjectID;references:ID;constraint:OnDelete:CASCADE" json:"positions,omitempty"`
