@@ -2,6 +2,7 @@ package helper
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -17,7 +18,11 @@ func FormatValidationError(err error) map[string]string {
 			case "required":
 				out[field] = field + " wajib diisi"
 			case "min":
-				out[field] = field + " minimal " + fe.Param() + " karakter"
+				if fe.Kind() == reflect.String {
+					out[field] = field + " minimal " + fe.Param() + " karakter"
+				} else {
+					out[field] = field + " minimal bernilai " + fe.Param()
+				}
 			case "gt":
 				out[field] = field + " harus lebih besar dari " + fe.Param()
 			case "email":
