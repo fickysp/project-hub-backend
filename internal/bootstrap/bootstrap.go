@@ -10,6 +10,7 @@ import (
 	"github.com/fickysp/project-hub-backend.git/internal/auth"
 	"github.com/fickysp/project-hub-backend.git/internal/middleware"
 	"github.com/fickysp/project-hub-backend.git/internal/project"
+	"github.com/fickysp/project-hub-backend.git/internal/role"
 	"github.com/fickysp/project-hub-backend.git/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/patrickmn/go-cache"
@@ -45,6 +46,10 @@ func Run() error {
 	projectUsecase := project.NewUsecase(projectRepository)
 	projectHandler := project.NewHandler(projectUsecase)
 
+	roleRepository := role.NewRepository(db)
+	roleUsecase := role.NewUsecase(roleRepository)
+	roleHandler := role.NewHandler(roleUsecase)
+
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -66,6 +71,7 @@ func Run() error {
 	auth.NewAuthHandler(public, protected, authUsecase, cfg)
 
 	projectHandler.RegisterRoutes(protected)
+	roleHandler.RegisterRoutes(protected)
 
 	slog.Info("Server started", "port", cfg.AppPort)
 
