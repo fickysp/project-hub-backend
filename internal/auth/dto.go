@@ -14,8 +14,9 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	AccessToken string     `json:"access_token"`
-	Data        model.User `json:"data"`
+	AccessToken  string     `json:"access_token"`
+	RefreshToken string     `json:"-"`
+	Data         model.User `json:"data"`
 }
 
 type RefreshResponse struct {
