@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	myjwt "github.com/fickysp/project-hub-backend.git/pkg/jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/patrickmn/go-cache"
@@ -52,7 +53,7 @@ func (m *authMiddleware) RequireToken() gin.HandlerFunc {
 			}
 		}
 
-		token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+		token, err := jwt.ParseWithClaims(tokenString, &myjwt.Claims{}, func(t *jwt.Token) (interface{}, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, errors.New("unexpected signing method")
 			}
@@ -68,7 +69,7 @@ func (m *authMiddleware) RequireToken() gin.HandlerFunc {
 			return
 		}
 
-		claims, ok := token.Claims.(jwt.MapClaims)
+		claims, ok := token.Claims.(*myjwt.Claims)
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"success": false,
@@ -77,10 +78,16 @@ func (m *authMiddleware) RequireToken() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("user_id", claims["user_id"])
-		c.Set("account_id", claims["account_id"])
-		c.Set("role", claims["role"])
-		c.Set("token", tokenString)
+		if claims.Type != "access_token" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"message": "Token type invalid",
+			})
+			return
+		}
+
+		c.Set("user_id", claims.ID)
+		c.Set("name", claims.Name)
 
 		c.Next()
 	}
