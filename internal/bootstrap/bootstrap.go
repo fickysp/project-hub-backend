@@ -50,7 +50,8 @@ func Run() error {
 	authUsecase := auth.NewAuthUsecase(authRepository)
 
 	projectRepository := project.NewRepository(db)
-	projectUsecase := project.NewUsecase(projectRepository, cache)
+	projectCache := project.NewMemoryCacheAdapter(cache)
+	projectUsecase := project.NewUsecase(projectRepository, projectCache)
 	projectHandler := project.NewHandler(projectUsecase)
 
 	roleRepository := role.NewRepository(db)
