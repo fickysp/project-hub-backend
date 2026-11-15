@@ -59,10 +59,12 @@ func Run() error {
 	})
 
 	api := router.Group("/api/v1")
-	api.Use(authMiddleware.RequireToken())
+	public := api.Group("/")
+	protected := api.Group("/")
+	protected.Use(authMiddleware.RequireToken())
 
-	projectHandler.RegisterRoutes(api)
-	auth.NewAuthHandler(api, authUsecase, cfg)
+	projectHandler.RegisterRoutes(protected)
+	auth.NewAuthHandler(public, protected, authUsecase, cfg)
 
 	slog.Info("Server started", "port", cfg.AppPort)
 
