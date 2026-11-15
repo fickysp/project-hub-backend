@@ -42,6 +42,43 @@ type ProjectResponse struct {
 	UpdatedAt   time.Time           `json:"updated_at"`
 }
 
+type ProjectLeadResponse struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type PaginationResponse struct {
+	Page       int   `json:"page"`
+	Limit      int   `json:"limit"`
+	Total      int64 `json:"total"`
+	TotalPages int64 `json:"total_pages"`
+}
+
+type ProjectCatalogItem struct {
+	ID                uuid.UUID             `json:"id"`
+	Name              string                `json:"name"`
+	Summary           string                `json:"summary"`
+	Status            model.ProjectStatus   `json:"status"`
+	Skills            []SkillResponse       `json:"skills"`
+	Leads             []ProjectLeadResponse `json:"leads"`
+	OpenPositions     int                   `json:"open_positions"`
+	AvailableSlots    int64                 `json:"available_slots"`
+	OpenPositionNames []string              `json:"open_position_names"`
+}
+
+type ListProjectsRequest struct {
+	Search  string              `form:"search" binding:"max=150"`
+	Status  model.ProjectStatus `form:"status" binding:"omitempty,oneof=recruiting active completed"`
+	SkillID string              `form:"skill_id" binding:"omitempty,uuid"`
+	Page    int                 `form:"page,default=1" binding:"min=1,max=1000000"`
+	Limit   int                 `form:"limit,default=10" binding:"min=1,max=100"`
+}
+
+type ListProjectsResponse struct {
+	Data       []ProjectCatalogItem `json:"data"`
+	Pagination PaginationResponse   `json:"pagination"`
+}
+
 func toProjectResponse(project *model.Project) ProjectResponse {
 	skills := make([]SkillResponse, 0, len(project.Skills))
 

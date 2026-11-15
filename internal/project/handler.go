@@ -129,6 +129,41 @@ func (h *Handler) Delete(c *gin.Context) {
 	})
 }
 
+func (h *Handler) List(c *gin.Context) {
+	userID, ok := getAuthenticatedUserID(c)
+	if !ok {
+		return
+	}
+
+	var request ListProjectsRequest
+
+	if err := c.ShouldBindQuery(&request); err != nil {
+		writeProjectError(
+			c,
+			http.StatusBadRequest,
+			"INVALID_QUERY",
+			"Invalid search, status, skill_id, page, or limit",
+		)
+		return
+	}
+
+	response, err := h.usecase.List(
+		c.Request.Context(),
+		userID,
+		request,
+	)
+	if err != nil {
+		handleProjectError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Projects retrieved successfully",
+		"data":       response.Data,
+		"pagination": response.Pagination,
+	})
+}
+
 func getAuthenticatedUserID(c *gin.Context) (uuid.UUID, bool) {
 	value, exists := c.Get("user_id")
 	if !exists {

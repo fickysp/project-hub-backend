@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-
 type ValidationError struct {
 	Field   string
 	Message string
@@ -22,6 +21,12 @@ func (e *ValidationError) Error() string {
 }
 
 type Usecase interface {
+	List(
+		ctx context.Context,
+		userID uuid.UUID,
+		request ListProjectsRequest,
+	) (*ListProjectsResponse, error)
+
 	Create(
 		ctx context.Context,
 		userID uuid.UUID,
@@ -50,6 +55,172 @@ func NewUsecase(repository Repository) Usecase {
 	return &usecase{
 		repository: repository,
 	}
+}
+
+func (u *usecase) List(
+	ctx context.Context,
+	userID uuid.UUID,
+	request ListProjectsRequest,
+) (*ListProjectsResponse, error) {
+	if userID == uuid.Nil {
+		return nil, sentinel.ErrUnauthorized
+	}
+
+	request.Search = strings.TrimSpace(request.Search)
+
+	if utf8.RuneCountInString(request.Search) > 150 {
+		return nil, &ValidationError{
+			Field:   "search",
+			Message: "must not exceed 150 characters",
+		}
+	}
+
+	if request.Page == 0 {
+		request.Page = 1
+	}
+
+	if request.Limit == 0 {
+		request.Limit = 10
+	}
+
+	if request.Page < 1 || request.Page > 1000000 {
+		return nil, &ValidationError{
+			Field:   "page",
+			Message: "must be between 1 and 1000000",
+		}
+	}
+
+	if request.Limit < 1 || request.Limit > 100 {
+		return nil, &ValidationError{
+			Field:   "limit",
+			Message: "must be between 1 and 100",
+		}
+	}
+
+	switch request.Status {
+	case "",
+		model.ProjectStatusRecruiting,
+		model.ProjectStatusActive,
+		model.ProjectStatusCompleted:
+	default:
+		return nil, &ValidationError{
+			Field:   "status",
+			Message: "must be recruiting, active, or completed",
+		}
+	}
+
+	if request.SkillID != "" {
+		skillID, err := uuid.Parse(request.SkillID)
+		if err != nil || skillID == uuid.Nil {
+			return nil, &ValidationError{
+				Field:   "skill_id",
+				Message: "must be a valid non-empty UUID",
+			}
+		}
+
+		request.SkillID = skillID.String()
+	}
+
+	projects, total, err := u.repository.List(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	positionIDs := make([]uuid.UUID, 0)
+
+	for _, project := range projects {
+		if project.Status != model.ProjectStatusRecruiting {
+			continue
+		}
+
+		for _, position := range project.Positions {
+			if position.Status == model.PositionStatusOpen &&
+				!position.DeletedAt.Valid {
+				positionIDs = append(positionIDs, position.ID)
+			}
+		}
+	}
+
+	memberCounts, err := u.repository.CountActiveMembersByPosition(
+		ctx,
+		positionIDs,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]ProjectCatalogItem, 0, len(projects))
+
+	for _, project := range projects {
+		item := ProjectCatalogItem{
+			ID:                project.ID,
+			Name:              project.Name,
+			Summary:           project.Summary,
+			Status:            project.Status,
+			Skills:            make([]SkillResponse, 0, len(project.Skills)),
+			Leads:             make([]ProjectLeadResponse, 0),
+			OpenPositionNames: make([]string, 0),
+		}
+
+		for _, skill := range project.Skills {
+			item.Skills = append(item.Skills, SkillResponse{
+				ID:   skill.ID,
+				Name: skill.Name,
+			})
+		}
+
+		for _, member := range project.Members {
+			if member.Role != model.ProjectRoleLead ||
+				member.Status != model.MembershipStatusActive {
+				continue
+			}
+
+			item.Leads = append(item.Leads, ProjectLeadResponse{
+				ID:   member.UserID,
+				Name: member.User.Name,
+			})
+		}
+
+		if project.Status == model.ProjectStatusRecruiting {
+			for _, position := range project.Positions {
+				if position.Status != model.PositionStatusOpen ||
+					position.DeletedAt.Valid {
+					continue
+				}
+
+				available := int64(position.Capacity) -
+					memberCounts[position.ID]
+
+				if available <= 0 {
+					continue
+				}
+
+				item.OpenPositions++
+				item.AvailableSlots += available
+				item.OpenPositionNames = append(
+					item.OpenPositionNames,
+					position.Name,
+				)
+			}
+		}
+
+		items = append(items, item)
+	}
+
+	totalPages := total / int64(request.Limit)
+	if total%int64(request.Limit) != 0 {
+		totalPages++
+	}
+
+	return &ListProjectsResponse{
+		Data: items,
+		Pagination: PaginationResponse{
+			Page:       request.Page,
+			Limit:      request.Limit,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (u *usecase) Create(
