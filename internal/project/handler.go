@@ -158,11 +158,12 @@ func (h *Handler) List(c *gin.Context) {
 	})
 }
 
-func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
-	router.GET("/projects", h.List)
-	router.POST("/projects", h.Create)
-	router.PATCH("/projects/:project_id", h.Update)
-	router.DELETE("/projects/:project_id", h.Delete)
+func (h *Handler) RegisterRoutes(routerPublic *gin.RouterGroup, routerProtected *gin.RouterGroup) {
+
+	routerPublic.GET("/projects", h.List)
+	routerProtected.POST("/projects", h.Create)
+	routerProtected.PATCH("/projects/:project_id", h.Update)
+	routerProtected.DELETE("/projects/:project_id", h.Delete)
 }
 
 func getAuthenticatedUserID(c *gin.Context) (uuid.UUID, bool) {

@@ -93,7 +93,7 @@ func Run() error {
 
 	auth.NewAuthHandler(public, protected, authUsecase, cfg)
 
-	projectHandler.RegisterRoutes(protected)
+	projectHandler.RegisterRoutes(public, protected)
 	roleHandler.RegisterRoutes(protected)
 	memberHandler.RegisterRoutes(protected)
 	application.NewApplicationHandler(protected, applicantUsecase)
