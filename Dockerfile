@@ -1,26 +1,15 @@
-FROM golang:1.26-alpine AS builder
-
-WORKDIR /app
-
+FROM golang:1.26.6-alpine AS builder
+WORKDIR /src
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod go mod download
-
+RUN go mod download
 COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -o /out/projecthub ./cmd/api
 
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux go build -o project-hub ./cmd/api
-
-FROM alpine:latest
-
+FROM alpine:3.23
+RUN apk add --no-cache ca-certificates tzdata && adduser -D app
 WORKDIR /app
-
-RUN apk --no-cache add ca-certificates tzdata
-
+COPY --from=builder /out/projecthub /app/projecthub
 ENV TZ=Asia/Jakarta
-
-COPY --from=builder /app/project-hub .
-
+USER app
 EXPOSE 8080
-
-CMD ["./project-hub"]
+CMD ["/app/projecthub"]

@@ -1,0 +1,72 @@
+name: Backend CI and VM Deployment
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go mod download
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+      - run: go build ./...
+
+  deploy:
+    needs: checks
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      VM_PLATFORM: ${{ vars.VM_PLATFORM || 'linux/amd64' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image and archive
+        run: |
+          set -euo pipefail
+          docker buildx build --platform "$VM_PLATFORM" --load -t "projecthub-api:$GITHUB_SHA" .
+          docker save "projecthub-api:$GITHUB_SHA" | gzip > backend.tar.gz
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST" && test -n "$SSH_PORT" && test -n "$SSH_USER"
+          test -n "$SSH_PRIVATE_KEY" && test -n "$SSH_KNOWN_HOSTS"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+      - name: Upload and deploy to VM
+        run: |
+          set -euo pipefail
+          target="$SSH_USER@$SSH_HOST"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -p "$SSH_PORT" "$target" 'mkdir -p "$HOME/projecthub-backend/incoming"'
+          scp -O -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -P "$SSH_PORT" backend.tar.gz "$target:projecthub-backend/incoming/$GITHUB_SHA.tar.gz"
+          scp -O -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -P "$SSH_PORT" docker-compose.yaml "$target:projecthub-backend/incoming/$GITHUB_SHA.compose.yaml"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -p "$SSH_PORT" "$target" "bash -s -- '$GITHUB_SHA'" < deploy/deploy.sh
+      - name: Remove runner SSH credentials
+        if: always()
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts

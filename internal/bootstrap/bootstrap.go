@@ -73,6 +73,11 @@ func Run() error {
 	}
 
 	router := gin.Default()
+	corsPolicy, err := middleware.NewOriginPolicy([]string{cfg.FrontendURL})
+	if err != nil {
+		return fmt.Errorf("configure CORS: %w", err)
+	}
+	router.Use(middleware.CORS(corsPolicy))
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{

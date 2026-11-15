@@ -1,3 +1,9 @@
 .git
-.gitignore
-Dockerfile
+.github
+.env
+.env.*
+!.env.example
+*.zip
+*.log
+*.tar.gz
+coverage
