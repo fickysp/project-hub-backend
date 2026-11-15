@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/google/uuid"
+
 	"github.com/fickysp/project-hub-backend.git/internal/domain/model"
 	"github.com/fickysp/project-hub-backend.git/pkg/sentinel"
 	"gorm.io/gorm"
@@ -16,6 +18,7 @@ type AuthRepository interface {
 	FindById(ctx context.Context, id string) (*model.User, error)
 	UpdateRefreshToken(ctx context.Context, userID string, refreshToken string) error
 	FindByRefreshToken(ctx context.Context, refreshToken string) (*model.User, error)
+	Logout(ctx context.Context, userID uuid.UUID) error
 }
 
 type authRepository struct {
@@ -74,7 +77,7 @@ func (r *authRepository) FindByRefreshToken(ctx context.Context, refreshToken st
 	return &user, nil
 }
 
-func (r *authRepository) Logout(ctx context.Context, userID string) error {
+func (r *authRepository) Logout(ctx context.Context, userID uuid.UUID) error {
 	result := r.db.WithContext(ctx).
 		Model(&model.User{}).
 		Where("id = ?", userID).
