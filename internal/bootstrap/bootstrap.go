@@ -7,11 +7,14 @@ import (
 
 	"github.com/fickysp/project-hub-backend.git/config"
 	"github.com/fickysp/project-hub-backend.git/infrastructure/database"
+	"github.com/fickysp/project-hub-backend.git/internal/application"
 	"github.com/fickysp/project-hub-backend.git/internal/auth"
+	"github.com/fickysp/project-hub-backend.git/internal/member"
 	"github.com/fickysp/project-hub-backend.git/internal/middleware"
+	projectposition "github.com/fickysp/project-hub-backend.git/internal/position"
 	"github.com/fickysp/project-hub-backend.git/internal/project"
 	"github.com/fickysp/project-hub-backend.git/internal/role"
-	"github.com/fickysp/project-hub-backend.git/internal/member"
+	"github.com/fickysp/project-hub-backend.git/internal/websocket"
 	"github.com/fickysp/project-hub-backend.git/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/patrickmn/go-cache"
@@ -30,14 +33,17 @@ func Run() error {
 	}
 	defer sqlDB.Close()
 
-	blacklistCache := cache.New(
-		15*time.Minute,
+	cache := cache.New(
 		5*time.Minute,
+		10*time.Minute,
 	)
+
+	hub := websocket.NewHub()
+	go hub.Run()
 
 	authMiddleware := middleware.NewAuthMiddleware(
 		cfg.JWTSecret,
-		blacklistCache,
+		cache,
 	)
 
 	authRepository := auth.NewAuthRepository(db)
@@ -54,6 +60,12 @@ func Run() error {
 	memberRepository := member.NewRepository(db)
 	memberUsecase := member.NewUsecase(memberRepository)
 	memberHandler := member.NewHandler(memberUsecase)
+
+	applicantRepository := application.NewApplicationRepository(db)
+	applicantUsecase := application.NewApplicationUsecase(applicantRepository, hub)
+
+	positionRepo := projectposition.NewPositionRepository(db)
+	positionUsecase := projectposition.NewPositionUsecase(positionRepo, hub)
 
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -78,6 +90,8 @@ func Run() error {
 	projectHandler.RegisterRoutes(protected)
 	roleHandler.RegisterRoutes(protected)
 	memberHandler.RegisterRoutes(protected)
+	application.NewApplicationHandler(protected, applicantUsecase)
+	projectposition.NewPositionHandler(protected, positionUsecase)
 
 	slog.Info("Server started", "port", cfg.AppPort)
 
