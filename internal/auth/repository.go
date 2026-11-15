@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/fickysp/project-hub-backend.git/internal/domain/model"
+	"github.com/fickysp/project-hub-backend.git/pkg/sentinel"
 	"gorm.io/gorm"
 )
 
@@ -71,4 +72,19 @@ func (r *authRepository) FindByRefreshToken(ctx context.Context, refreshToken st
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *authRepository) Logout(ctx context.Context, userID string) error {
+	result := r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ?", userID).
+		Update("refresh_token", nil)
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return sentinel.ErrUserNotFound
+	}
+	return nil
 }
