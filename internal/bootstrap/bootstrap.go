@@ -39,11 +39,10 @@ func Run() error {
 	)
 
 	authRepository := auth.NewAuthRepository(db)
-	projectRepository := project.NewRepository(db)
-
 	authUsecase := auth.NewAuthUsecase(authRepository)
-	projectUsecase := project.NewUsecase(projectRepository)
 
+	projectRepository := project.NewRepository(db)
+	projectUsecase := project.NewUsecase(projectRepository)
 	projectHandler := project.NewHandler(projectUsecase)
 
 	if cfg.AppEnv == "production" {
@@ -59,12 +58,14 @@ func Run() error {
 	})
 
 	api := router.Group("/api/v1")
-	public := api.Group("/")
-	protected := api.Group("/")
+
+	public := api.Group("")
+	protected := api.Group("")
 	protected.Use(authMiddleware.RequireToken())
 
-	projectHandler.RegisterRoutes(protected)
 	auth.NewAuthHandler(public, protected, authUsecase, cfg)
+
+	projectHandler.RegisterRoutes(protected)
 
 	slog.Info("Server started", "port", cfg.AppPort)
 
