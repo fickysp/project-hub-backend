@@ -3,14 +3,14 @@ package auth
 import "github.com/fickysp/project-hub-backend.git/internal/domain/model"
 
 type RegisterRequest struct {
-	Name     string `json:"name" binding:"validate,min=3"`
-	Email    string `json:"email" binding:"validate,email"`
-	Password string `json:"password" binding:"validate,min=8"`
+	Name     string `json:"name" binding:"required,min=3"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=8"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"validate,email"`
-	Password string `json:"password" binding:"validate,min=8"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=8"`
 }
 
 type LoginResponse struct {
