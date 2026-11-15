@@ -9,7 +9,3 @@ services:
       - .env
     environment:
       TZ: Asia/Jakarta
-      DB_URL: postgresql://postgres.gujevnqmtbpqiuvvrlsg:projecthubbcc2026@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres
-    depends_on:
-      postgres:
-        condition: service_healthy
