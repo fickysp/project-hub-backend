@@ -3,8 +3,8 @@ package project
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -22,12 +22,6 @@ func NewHandler(usecase Usecase) *Handler {
 	return &Handler{
 		usecase: usecase,
 	}
-}
-
-func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
-	router.POST("/projects", h.Create)
-	router.PATCH("/projects/:project_id", h.Update)
-	router.DELETE("/projects/:project_id", h.Delete)
 }
 
 func (h *Handler) Create(c *gin.Context) {
@@ -127,6 +121,48 @@ func (h *Handler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Project deleted successfully",
 	})
+}
+
+func (h *Handler) List(c *gin.Context) {
+	userID, ok := getAuthenticatedUserID(c)
+	if !ok {
+		return
+	}
+
+	var request ListProjectsRequest
+
+	if err := c.ShouldBindQuery(&request); err != nil {
+		writeProjectError(
+			c,
+			http.StatusBadRequest,
+			"INVALID_QUERY",
+			"Invalid search, status, skill_id, page, or limit",
+		)
+		return
+	}
+
+	response, err := h.usecase.List(
+		c.Request.Context(),
+		userID,
+		request,
+	)
+	if err != nil {
+		handleProjectError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Projects retrieved successfully",
+		"data":       response.Data,
+		"pagination": response.Pagination,
+	})
+}
+
+func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
+	router.GET("/projects", h.List)
+	router.POST("/projects", h.Create)
+	router.PATCH("/projects/:project_id", h.Update)
+	router.DELETE("/projects/:project_id", h.Delete)
 }
 
 func getAuthenticatedUserID(c *gin.Context) (uuid.UUID, bool) {
