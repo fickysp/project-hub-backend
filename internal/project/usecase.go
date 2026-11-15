@@ -2,8 +2,10 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/fickysp/project-hub-backend.git/internal/domain/model"
@@ -18,6 +20,12 @@ type ValidationError struct {
 
 func (e *ValidationError) Error() string {
 	return e.Field + ": " + e.Message
+}
+
+type CacheClient interface {
+	Get(ctx context.Context, key string) ([]byte, error)
+	Set(ctx context.Context, key string, value []byte, expiration time.Duration) error
+	DeletePrefix(ctx context.Context, prefix string) error
 }
 
 type Usecase interface {
@@ -49,11 +57,13 @@ type Usecase interface {
 
 type usecase struct {
 	repository Repository
+	cache      CacheClient
 }
 
-func NewUsecase(repository Repository) Usecase {
+func NewUsecase(repository Repository, cache CacheClient) Usecase {
 	return &usecase{
 		repository: repository,
+		cache:      cache,
 	}
 }
 
@@ -119,6 +129,16 @@ func (u *usecase) List(
 		}
 
 		request.SkillID = skillID.String()
+	}
+
+	cacheKey := fmt.Sprintf("projects:list:search=%s:status=%s:skill=%s:page=%d:limit=%d",
+		request.Search, request.Status, request.SkillID, request.Page, request.Limit)
+
+	if cachedData, err := u.cache.Get(ctx, cacheKey); err == nil && cachedData != nil {
+		var response ListProjectsResponse
+		if err := json.Unmarshal(cachedData, &response); err == nil {
+			return &response, nil
+		}
 	}
 
 	projects, total, err := u.repository.List(ctx, request)
@@ -212,7 +232,7 @@ func (u *usecase) List(
 		totalPages++
 	}
 
-	return &ListProjectsResponse{
+	response := &ListProjectsResponse{
 		Data: items,
 		Pagination: PaginationResponse{
 			Page:       request.Page,
@@ -220,7 +240,13 @@ func (u *usecase) List(
 			Total:      total,
 			TotalPages: totalPages,
 		},
-	}, nil
+	}
+
+	if responseBytes, err := json.Marshal(response); err == nil {
+		_ = u.cache.Set(ctx, cacheKey, responseBytes, 5*time.Minute)
+	}
+
+	return response, nil
 }
 
 func (u *usecase) Create(
@@ -264,6 +290,8 @@ func (u *usecase) Create(
 	if err != nil {
 		return nil, err
 	}
+
+	_ = u.cache.DeletePrefix(ctx, "projects:list:")
 
 	response := toProjectResponse(project)
 
@@ -356,6 +384,8 @@ func (u *usecase) Update(
 		return nil, err
 	}
 
+	_ = u.cache.DeletePrefix(ctx, "projects:list:")
+
 	response := toProjectResponse(project)
 
 	return &response, nil
@@ -377,7 +407,14 @@ func (u *usecase) Delete(
 		}
 	}
 
-	return u.repository.Delete(ctx, projectID, userID)
+	err := u.repository.Delete(ctx, projectID, userID)
+	if err != nil {
+		return err
+	}
+
+	_ = u.cache.DeletePrefix(ctx, "projects:list:")
+
+	return nil
 }
 
 func validateProjectText(

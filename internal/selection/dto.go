@@ -57,7 +57,7 @@ type ApplicationResponse struct {
 	ProjectID      uuid.UUID               `json:"project_id"`
 	Applicant      ApplicantResponse       `json:"applicant"`
 	Position       PositionResponse        `json:"position"`
-	RelevantSkills string                  `json:"relevant_skills"`
+	RelevantSkills []string                `json:"relevant_skills"`
 	Motivation     string                  `json:"motivation"`
 	Status         model.ApplicationStatus `json:"status"`
 	SelectionNote  *string                 `json:"selection_note"`
