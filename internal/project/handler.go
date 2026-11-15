@@ -124,11 +124,6 @@ func (h *Handler) Delete(c *gin.Context) {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	userID, ok := getAuthenticatedUserID(c)
-	if !ok {
-		return
-	}
-
 	var request ListProjectsRequest
 
 	if err := c.ShouldBindQuery(&request); err != nil {
@@ -143,7 +138,7 @@ func (h *Handler) List(c *gin.Context) {
 
 	response, err := h.usecase.List(
 		c.Request.Context(),
-		userID,
+		uuid.Nil,
 		request,
 	)
 	if err != nil {

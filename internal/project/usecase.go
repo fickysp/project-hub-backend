@@ -72,9 +72,6 @@ func (u *usecase) List(
 	userID uuid.UUID,
 	request ListProjectsRequest,
 ) (*ListProjectsResponse, error) {
-	if userID == uuid.Nil {
-		return nil, sentinel.ErrUnauthorized
-	}
 
 	request.Search = strings.TrimSpace(request.Search)
 
