@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	"github.com/fickysp/project-hub-backend.git/config"
 	"github.com/fickysp/project-hub-backend.git/internal/helper"
 	"github.com/fickysp/project-hub-backend.git/pkg/sentinel"
@@ -144,5 +146,43 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"success": true,
 		"message": "Login berhasil",
 		"data":    resp,
+	})
+}
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	id, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": sentinel.ErrUnauthorized,
+			"data":    nil,
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(id.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Invalid user id",
+			"data":    nil,
+		})
+		return
+	}
+
+	if err := h.authUsecase.Logout(c.Request.Context(), userID); err != nil {
+		slog.Error("gagal logout user", "user_id", userID, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "Terjadi kesalahan pada server",
+			"data":    nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Berhasil logout",
+		"data":    nil,
 	})
 }
