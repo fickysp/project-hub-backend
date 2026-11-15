@@ -20,7 +20,6 @@ RUN apk --no-cache add ca-certificates tzdata
 ENV TZ=Asia/Jakarta
 
 COPY --from=builder /app/project-hub .
-COPY --from=builder /app/infrastructure/database/migrations ./infrastructure/database/migrations
 
 EXPOSE 8080
 
