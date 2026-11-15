@@ -419,14 +419,14 @@ func toApplicationResponse(
 			Available:   available,
 			Skills:      skills,
 		},
-		RelevantSkills: application.RelevantSkills,
+		RelevantSkills: append([]string{}, application.RelevantSkills...),
 		Motivation:     application.Motivation,
 		Status:         application.Status,
 		SelectionNote:  application.SelectionNote,
 		PortfolioURL:   application.PortfolioUrl,
 		DecidedBy:      application.DecidedBy,
 		DecidedAt:      application.DecidedAt,
-		CreatedAt:     application.CreatedAt,
-		UpdatedAt:     application.UpdatedAt,
+		CreatedAt:      application.CreatedAt,
+		UpdatedAt:      application.UpdatedAt,
 	}
 }
