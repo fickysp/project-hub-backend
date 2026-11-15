@@ -31,42 +31,51 @@ jobs:
   deploy:
     needs: checks
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
     env:
-      SSH_HOST: ${{ secrets.SSH_HOST }}
-      SSH_PORT: ${{ secrets.SSH_PORT }}
-      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_HOST: proxy.bccdev.id
+      SSH_PORT: "11111"
+      SSH_USER: dev
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
-      VM_PLATFORM: ${{ vars.VM_PLATFORM || 'linux/amd64' }}
+      GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REGISTRY_USER: ${{ github.actor }}
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - name: Build image and archive
+      - name: Configure and test group1 SSH
         run: |
           set -euo pipefail
-          docker buildx build --platform "$VM_PLATFORM" --load -t "projecthub-api:$GITHUB_SHA" .
-          docker save "projecthub-api:$GITHUB_SHA" | gzip > backend.tar.gz
-      - name: Configure SSH
-        run: |
-          set -euo pipefail
-          test -n "$SSH_HOST" && test -n "$SSH_PORT" && test -n "$SSH_USER"
-          test -n "$SSH_PRIVATE_KEY" && test -n "$SSH_KNOWN_HOSTS"
+          test -n "$SSH_PRIVATE_KEY" || { echo 'Missing SSH_PRIVATE_KEY'; exit 1; }
+          test -n "$SSH_KNOWN_HOSTS" || { echo 'Missing SSH_KNOWN_HOSTS'; exit 1; }
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
-      - name: Upload and deploy to VM
+          ssh-keygen -y -P '' -f ~/.ssh/deploy_key >/dev/null
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" 'test -s "$HOME/projecthub-backend/.env" && docker info >/dev/null && docker compose version'
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and push image to GHCR
+        run: |
+          set -euo pipefail
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "IMAGE_NAME=$IMAGE_NAME" >> "$GITHUB_ENV"
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+          docker buildx build --platform linux/amd64 --push --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" -t "$IMAGE_NAME:$GITHUB_SHA" .
+      - name: VM pull and deploy
         run: |
           set -euo pipefail
           target="$SSH_USER@$SSH_HOST"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -p "$SSH_PORT" "$target" 'mkdir -p "$HOME/projecthub-backend/incoming"'
-          scp -O -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -P "$SSH_PORT" backend.tar.gz "$target:projecthub-backend/incoming/$GITHUB_SHA.tar.gz"
           scp -O -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -P "$SSH_PORT" docker-compose.yaml "$target:projecthub-backend/incoming/$GITHUB_SHA.compose.yaml"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -p "$SSH_PORT" "$target" "bash -s -- '$GITHUB_SHA'" < deploy/deploy.sh
-      - name: Remove runner SSH credentials
+          scp -O -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -P "$SSH_PORT" deploy/deploy.sh "$target:projecthub-backend/incoming/$GITHUB_SHA.deploy.sh"
+          printf '%s' "$GHCR_TOKEN" | ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -p "$SSH_PORT" "$target" "bash projecthub-backend/incoming/$GITHUB_SHA.deploy.sh '$GITHUB_SHA' '$IMAGE_NAME' '$REGISTRY_USER'"
+      - name: Clean runner credentials
         if: always()
-        run: rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts
+        run: |
+          docker logout ghcr.io >/dev/null 2>&1 || true
+          rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts

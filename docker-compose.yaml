@@ -1,6 +1,6 @@
 services:
   project-hub:
-    image: projecthub-api:${IMAGE_TAG:?IMAGE_TAG is required}
+    image: ${REGISTRY_IMAGE:?REGISTRY_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: projecthub-api
     restart: unless-stopped
     ports:
