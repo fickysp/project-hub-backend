@@ -10,6 +10,8 @@ import (
 	"github.com/fickysp/project-hub-backend.git/internal/auth"
 	"github.com/fickysp/project-hub-backend.git/internal/middleware"
 	"github.com/fickysp/project-hub-backend.git/internal/project"
+	"github.com/fickysp/project-hub-backend.git/internal/role"
+	"github.com/fickysp/project-hub-backend.git/internal/member"
 	"github.com/fickysp/project-hub-backend.git/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/patrickmn/go-cache"
@@ -39,12 +41,19 @@ func Run() error {
 	)
 
 	authRepository := auth.NewAuthRepository(db)
-	projectRepository := project.NewRepository(db)
-
 	authUsecase := auth.NewAuthUsecase(authRepository)
-	projectUsecase := project.NewUsecase(projectRepository)
 
+	projectRepository := project.NewRepository(db)
+	projectUsecase := project.NewUsecase(projectRepository)
 	projectHandler := project.NewHandler(projectUsecase)
+
+	roleRepository := role.NewRepository(db)
+	roleUsecase := role.NewUsecase(roleRepository)
+	roleHandler := role.NewHandler(roleUsecase)
+
+	memberRepository := member.NewRepository(db)
+	memberUsecase := member.NewUsecase(memberRepository)
+	memberHandler := member.NewHandler(memberUsecase)
 
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -59,12 +68,16 @@ func Run() error {
 	})
 
 	api := router.Group("/api/v1")
-	public := api.Group("/")
-	protected := api.Group("/")
+
+	public := api.Group("")
+	protected := api.Group("")
 	protected.Use(authMiddleware.RequireToken())
 
-	projectHandler.RegisterRoutes(protected)
 	auth.NewAuthHandler(public, protected, authUsecase, cfg)
+
+	projectHandler.RegisterRoutes(protected)
+	roleHandler.RegisterRoutes(protected)
+	memberHandler.RegisterRoutes(protected)
 
 	slog.Info("Server started", "port", cfg.AppPort)
 

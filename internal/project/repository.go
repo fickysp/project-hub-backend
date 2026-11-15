@@ -13,6 +13,16 @@ import (
 )
 
 type Repository interface {
+	List(
+		ctx context.Context,
+		request ListProjectsRequest,
+	) ([]model.Project, int64, error)
+
+	CountActiveMembersByPosition(
+		ctx context.Context,
+		positionIDs []uuid.UUID,
+	) (map[uuid.UUID]int64, error)
+
 	Create(
 		ctx context.Context,
 		userID uuid.UUID,
@@ -39,6 +49,121 @@ type repository struct {
 
 func NewRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
+}
+
+func (r *repository) List(
+	ctx context.Context,
+	request ListProjectsRequest,
+) ([]model.Project, int64, error) {
+	projects := make([]model.Project, 0)
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.Project{})
+
+	if request.Search != "" {
+		query = query.Where(
+			"projects.name ILIKE ?",
+			"%"+request.Search+"%",
+		)
+	}
+
+	if request.Status != "" {
+		query = query.Where(
+			"projects.status = ?",
+			request.Status,
+		)
+	}
+
+	if request.SkillID != "" {
+		query = query.Where(`
+			EXISTS (
+				SELECT 1
+				FROM project_positions pp
+				JOIN position_skills ps
+					ON ps.position_id = pp.id
+				WHERE pp.project_id = projects.id
+					AND pp.deleted_at IS NULL
+					AND ps.skill_id = ?
+			)
+		`, request.SkillID)
+	}
+
+	if err := query.Session(&gorm.Session{}).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (request.Page - 1) * request.Limit
+
+	err := query.
+		Preload("Skills").
+		Preload("Members", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Where(
+					"role = ? AND status = ?",
+					model.ProjectRoleLead,
+					model.MembershipStatusActive,
+				).
+				Order("joined_at ASC").
+				Order("id ASC")
+		}).
+		Preload("Members.User", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name")
+		}).
+		Preload("Positions", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Where("status = ?", model.PositionStatusOpen).
+				Order("name ASC").
+				Order("id ASC")
+		}).
+		Order("projects.created_at DESC").
+		Order("projects.id DESC").
+		Limit(request.Limit).
+		Offset(offset).
+		Find(&projects).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return projects, total, nil
+}
+
+func (r *repository) CountActiveMembersByPosition(
+	ctx context.Context,
+	positionIDs []uuid.UUID,
+) (map[uuid.UUID]int64, error) {
+	result := make(map[uuid.UUID]int64)
+
+	if len(positionIDs) == 0 {
+		return result, nil
+	}
+
+	var counts []struct {
+		PositionID uuid.UUID
+		Total      int64
+	}
+
+	err := r.db.WithContext(ctx).
+		Model(&model.ProjectMember{}).
+		Select("position_id, COUNT(*) AS total").
+		Where(
+			"position_id IN ? AND status = ?",
+			positionIDs,
+			model.MembershipStatusActive,
+		).
+		Group("position_id").
+		Scan(&counts).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, count := range counts {
+		result[count.PositionID] = count.Total
+	}
+
+	return result, nil
 }
 
 func (r *repository) Create(
