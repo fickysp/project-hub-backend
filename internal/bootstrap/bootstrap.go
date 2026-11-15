@@ -7,6 +7,7 @@ import (
 
 	"github.com/fickysp/project-hub-backend.git/config"
 	"github.com/fickysp/project-hub-backend.git/infrastructure/database"
+	"github.com/fickysp/project-hub-backend.git/internal/auth"
 	"github.com/fickysp/project-hub-backend.git/internal/middleware"
 	"github.com/fickysp/project-hub-backend.git/internal/project"
 	"github.com/fickysp/project-hub-backend.git/pkg/logger"
@@ -37,8 +38,12 @@ func Run() error {
 		blacklistCache,
 	)
 
+	authRepository := auth.NewAuthRepository(db)
 	projectRepository := project.NewRepository(db)
+
+	authUsecase := auth.NewAuthUsecase(authRepository)
 	projectUsecase := project.NewUsecase(projectRepository)
+
 	projectHandler := project.NewHandler(projectUsecase)
 
 	if cfg.AppEnv == "production" {
@@ -57,6 +62,7 @@ func Run() error {
 	api.Use(authMiddleware.RequireToken())
 
 	projectHandler.RegisterRoutes(api)
+	auth.NewAuthHandler(api, authUsecase, cfg)
 
 	slog.Info("Server started", "port", cfg.AppPort)
 
