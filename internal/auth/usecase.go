@@ -9,11 +9,13 @@ import (
 	"github.com/fickysp/project-hub-backend.git/pkg/bcrypt"
 	"github.com/fickysp/project-hub-backend.git/pkg/jwt"
 	"github.com/fickysp/project-hub-backend.git/pkg/sentinel"
+	"github.com/google/uuid"
 )
 
 type AuthUsecase interface {
 	Register(ctx context.Context, req RegisterRequest) error
 	Login(ctx context.Context, jwtSecret, refreshSecret string, req LoginRequest) (*LoginResponse, error)
+	Logout(ctx context.Context, userID uuid.UUID) error
 }
 type authUsecase struct {
 	authRepo AuthRepository
@@ -96,4 +98,8 @@ func (u *authUsecase) Login(ctx context.Context, jwtSecret, refreshSecret string
 		RefreshToken: refreshToken,
 		Data:         *user,
 	}, nil
+}
+
+func (u *authUsecase) Logout(ctx context.Context, userID uuid.UUID) error {
+	return u.authRepo.Logout(ctx, userID)
 }
