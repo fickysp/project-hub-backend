@@ -8,7 +8,7 @@ import (
 )
 
 type Claims struct {
-	ID        string          `json:"account_id"`
+	ID        string          `json:"user_id"`
 	Name      string          `json:"name"`
 	UpdatedAt jwt.NumericDate `json:"updated_at"`
 	Type      string          `json:"type"`
