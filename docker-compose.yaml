@@ -1,0 +1,15 @@
+services:
+  project-hub:
+    build: .
+    container_name: project-hub
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      TZ: Asia/Jakarta
+      DB_URL: postgresql://postgres.gujevnqmtbpqiuvvrlsg:projecthubbcc2026@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
