@@ -18,16 +18,21 @@ type AuthHandler struct {
 	cfg         *config.Config
 }
 
-func NewAuthHandler(router *gin.RouterGroup, au AuthUsecase, cfg *config.Config) {
+func NewAuthHandler(publicRouter *gin.RouterGroup, protectedRouter *gin.RouterGroup, au AuthUsecase, cfg *config.Config) {
 	handler := &AuthHandler{
 		authUsecase: au,
 		cfg:         cfg,
 	}
 
-	group := router.Group("/auth")
+	public := publicRouter.Group("/auth")
 	{
-		group.POST("/register", handler.Register)
-		group.POST("/login", handler.Login)
+		public.POST("/register", handler.Register)
+		public.POST("/login", handler.Login)
+	}
+
+	protected := protectedRouter.Group("/auth")
+	{
+		protected.POST("/logout", handler.Logout)
 	}
 }
 
