@@ -28,7 +28,7 @@ func NewAuthUsecase(ar AuthRepository) AuthUsecase {
 func (u *authUsecase) Register(ctx context.Context, req RegisterRequest) error {
 	user, err := u.authRepo.FindByEmail(ctx, req.Email)
 	if user != nil {
-		slog.Warn("Gagal registrasi, email sudah digunakan", "error", err,
+		slog.Error("Gagal registrasi, email sudah digunakan", "error", err,
 			slog.String("email", req.Email))
 		return sentinel.ErrEmailIsUsed
 	} else if err != nil {
@@ -37,7 +37,7 @@ func (u *authUsecase) Register(ctx context.Context, req RegisterRequest) error {
 
 	hashPassword, err := bcrypt.HashPassword(req.Password)
 	if err != nil {
-		slog.Warn("Gagal menghash password", "error", err,
+		slog.Warn("Gagal menghash password",
 			slog.String("email", req.Email))
 		return sentinel.ErrInternalServerError
 	}
@@ -51,7 +51,7 @@ func (u *authUsecase) Register(ctx context.Context, req RegisterRequest) error {
 	}
 
 	if err := u.authRepo.Create(ctx, users); err != nil {
-		slog.Warn("Gagal menambahkan user", "error", err,
+		slog.Warn("Gagal menambahkan user",
 			slog.String("email", req.Email))
 		return sentinel.ErrInternalServerError
 	}
@@ -73,26 +73,27 @@ func (u *authUsecase) Login(ctx context.Context, jwtSecret, refreshSecret string
 
 	accessToken, err := jwt.GenerateAccessToken(user.ID.String(), user.Name, jwtSecret, user.UpdatedAt)
 	if err != nil {
-		slog.Warn("Gagal membuat access token: ", "error", err,
+		slog.Warn("Gagal membuat access token: ",
 			slog.String("email", req.Email))
 		return nil, sentinel.ErrInternalServerError
 	}
 
 	refreshToken, err := jwt.GenerateRefreshToken(user.ID.String(), user.Name, refreshSecret, user.UpdatedAt)
 	if err != nil {
-		slog.Warn("Gagal membuat refresh token: ", "error", err,
+		slog.Warn("Gagal membuat refresh token: ",
 			slog.String("email", req.Email))
 		return nil, sentinel.ErrInternalServerError
 	}
 
 	if err := u.authRepo.UpdateRefreshToken(ctx, user.ID.String(), refreshToken); err != nil {
-		slog.Error("Gagal mengupdate refresh token", "error", err,
+		slog.Error("Gagal mengupdate refresh token",
 			slog.String("user_id", user.ID.String()))
 		return nil, err
 	}
 
 	return &LoginResponse{
-		AccessToken: accessToken,
-		Data:        *user,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		Data:         *user,
 	}, nil
 }
