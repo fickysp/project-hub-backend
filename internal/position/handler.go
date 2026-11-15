@@ -191,7 +191,6 @@ func (h *PositionHandler) DeletePosition(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "Position ID tidak valid",
-			"errors":  nil,
 			"data":    nil,
 		})
 		return
@@ -203,7 +202,6 @@ func (h *PositionHandler) DeletePosition(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
 			"message": "Unauthorized",
-			"errors":  nil,
 			"data":    nil,
 		})
 		return
@@ -215,7 +213,6 @@ func (h *PositionHandler) DeletePosition(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{
 				"success": false,
 				"message": err.Error(),
-				"errors":  nil,
 				"data":    nil,
 			})
 			return
@@ -224,7 +221,6 @@ func (h *PositionHandler) DeletePosition(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": err.Error(),
-			"errors":  nil,
 			"data":    nil,
 		})
 		return
@@ -234,7 +230,6 @@ func (h *PositionHandler) DeletePosition(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Posisi berhasil dihapus",
-		"errors":  nil,
 		"data":    nil,
 	})
 }
@@ -246,7 +241,6 @@ func (h *PositionHandler) GetPosition(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "Position ID tidak valid",
-			"errors":  nil,
 			"data":    nil,
 		})
 		return
@@ -259,7 +253,6 @@ func (h *PositionHandler) GetPosition(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{
 				"success": false,
 				"message": err.Error(),
-				"errors":  nil,
 				"data":    nil,
 			})
 			return
@@ -268,7 +261,6 @@ func (h *PositionHandler) GetPosition(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
 			"message": err.Error(),
-			"errors":  nil,
 			"data":    nil,
 		})
 		return
@@ -278,7 +270,6 @@ func (h *PositionHandler) GetPosition(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Berhasil mendapatkan posisi",
-		"errors":  nil,
 		"data":    result,
 	})
 }
@@ -290,7 +281,6 @@ func (h *PositionHandler) GetAllPosition(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "Project ID tidak valid",
-			"errors":  nil,
 			"data":    nil,
 		})
 		return
@@ -302,7 +292,6 @@ func (h *PositionHandler) GetAllPosition(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
 			"message": err.Error(),
-			"errors":  nil,
 			"data":    nil,
 		})
 		return
@@ -312,7 +301,6 @@ func (h *PositionHandler) GetAllPosition(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Berhasil mendapatkan semua posisi",
-		"errors":  nil,
 		"data":    result,
 	})
 }
