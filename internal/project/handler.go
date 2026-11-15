@@ -3,8 +3,8 @@ package project
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -22,12 +22,6 @@ func NewHandler(usecase Usecase) *Handler {
 	return &Handler{
 		usecase: usecase,
 	}
-}
-
-func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
-	router.POST("/projects", h.Create)
-	router.PATCH("/projects/:project_id", h.Update)
-	router.DELETE("/projects/:project_id", h.Delete)
 }
 
 func (h *Handler) Create(c *gin.Context) {
@@ -162,6 +156,13 @@ func (h *Handler) List(c *gin.Context) {
 		"data":       response.Data,
 		"pagination": response.Pagination,
 	})
+}
+
+func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
+	router.GET("/projects", h.List)
+	router.POST("/projects", h.Create)
+	router.PATCH("/projects/:project_id", h.Update)
+	router.DELETE("/projects/:project_id", h.Delete)
 }
 
 func getAuthenticatedUserID(c *gin.Context) (uuid.UUID, bool) {
