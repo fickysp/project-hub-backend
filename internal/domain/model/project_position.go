@@ -8,8 +8,8 @@ import (
 )
 
 type ProjectPosition struct {
-	ID          uuid.UUID      `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	ProjectID   uuid.UUID      `gorm:"type:uuid;not null;index:idx_project_status;uniqueIndex:idx_project_position_id" json:"project_id"`
+	ID        	uuid.UUID 	   `gorm:"type:uuid;default:gen_random_uuid();primaryKey;uniqueIndex:idx_project_position_id,priority:2" json:"id"`
+	ProjectID 	uuid.UUID      `gorm:"type:uuid;not null;index:idx_project_status;uniqueIndex:idx_project_position_id,priority:1" json:"project_id"`
 	Name        string         `gorm:"type:varchar(100);not null" json:"name"`
 	Description string         `gorm:"type:text;not null" json:"description"`
 	Capacity    int            `gorm:"not null" json:"capacity"`
